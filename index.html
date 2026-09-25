@@ -4,50 +4,237 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>snap3d clothes</title>
+<meta name="description" content="사진만으로 만든 3D 착용 뷰. 기존 상품 상세페이지에 그대로 붙여 고객이 직접 핏을 돌려보게 합니다.">
+<meta name="theme-color" content="#0a0b0d">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d0d0f'/%3E%3Ccircle cx='16' cy='16' r='8.5' fill='none' stroke='%237dd3c0' stroke-width='2.5'/%3E%3Ccircle cx='12.5' cy='12.5' r='2.6' fill='%237dd3c0'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="preload" as="image" href="./assets/product/shot-1.jpg">
 <style>
+  /* Two voices on one page, deliberately mismatched: snap3d's own chrome is a dark,
+     technical instrument panel (Rubik, mono labels, a dot-grid floor, one coral
+     accent) built to look like the tool it is. The sample store framed inside it
+     keeps its own separate, ordinary voice (Pretendard, white, 4px corners, ink
+     buttons) untouched - an operator should feel the seam between the two and read
+     the framed page as "an example store", not as snap3d's own design. Every token
+     and rule below stays scoped to one side of that seam: --shop-* and the plain
+     --ink/--line/--soft family belong only to #stage and never leak out of it. */
   :root {
-    --font-sans: 'Rubik', sans-serif;
+    --font-sans: 'Rubik', 'Pretendard Variable', Pretendard, sans-serif;
+    --font-shop: 'Pretendard Variable', Pretendard, -apple-system, sans-serif;
     --font-mono: 'Roboto Mono', monospace;
-    --text: rgba(0, 0, 0, 0.87);
-    --text-2: rgba(0, 0, 0, 0.6);
     --accent: #ff5252;
+    --shop-radius: 4px;
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-wipe: cubic-bezier(0.65, 0, 0.35, 1);
+    --wipe-ms: 820ms;
+
+    /* snap3d's own chrome: dark instrument panel, outside #stage only */
+    --chrome-floor: #0a0b0d;
+    --chrome-bg: #101114;
+    --chrome-ink: #f1f2f4;
+    --chrome-ink-2: #8d919b;
+    --chrome-soft: #1a1b20;
+    --chrome-line: rgba(255, 255, 255, 0.12);
+    --grid-dot: rgba(255, 255, 255, 0.06);
+
+    /* the sample store's own voice, untouched by the chrome above */
+    --shop-bg: #ffffff;
+    --ink: #16171a;
+    --ink-2: #5b5e66;
+    --line: #e7e8eb;
+    --soft: #f4f4f5;
     --border: rgba(0, 0, 0, 0.12);
-    --bg: #ffffff;
-    --page-margin-bg: #f5f5f5;
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
+  html { scrollbar-color: #45474e transparent; }
   body {
-    margin: 0; background: var(--page-margin-bg); color: var(--text);
+    margin: 0; background: var(--chrome-floor); color: var(--chrome-ink);
     font: 18px/1.6 var(--font-sans); -webkit-font-smoothing: antialiased;
+    overflow-x: hidden; word-break: keep-all;
   }
+  ::selection { background: rgba(255, 82, 82, 0.32); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  button { font: inherit; color: inherit; }
 
   .page {
-    min-height: 100vh; max-width: 960px; margin: 0 auto; padding: 40px 24px 24px;
+    min-height: 100dvh; max-width: 1120px; margin: 0 auto; padding: 56px 24px 40px;
     display: flex; flex-direction: column;
-    background: var(--bg);
+    background-color: var(--chrome-bg);
+    background-image: radial-gradient(var(--grid-dot) 1px, transparent 1px);
+    background-size: 24px 24px;
   }
 
   h1 {
     display: flex; align-items: center; gap: 12px; flex: none;
     font: 400 2.16rem/1.2 var(--font-sans); margin: 0;
   }
-  h1 .mark { width: 32px; height: 32px; color: var(--accent); flex-shrink: 0; }
-  h3.tagline { flex: none; font: 400 1.575rem/1.35 var(--font-sans); margin: 14px 0 24px; color: var(--text-2); font-weight: 400; }
+  h1 .mark { width: 30px; height: 30px; color: var(--accent); flex-shrink: 0; }
+  .tagline { flex: none; font: 400 1.575rem/1.35 var(--font-sans); margin: 14px 0 28px; color: var(--chrome-ink-2); }
 
-  #stage {
-    position: relative; flex: 1 1 auto; min-height: 240px;
-    width: 100vw; margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw);
-    overflow: hidden;
+  /* ---------- before / after switch ---------- */
+  .compare {
+    flex: none; display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px;
+    margin-bottom: 20px;
   }
-  #stage > canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  .switch {
+    position: relative; display: inline-grid; grid-template-columns: 1fr 1fr;
+    padding: 4px; border-radius: 999px; background: var(--chrome-soft);
+    box-shadow: inset 0 0 0 1px var(--chrome-line);
+  }
+  .switch-thumb {
+    position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px);
+    border-radius: 999px; background: var(--accent);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+    transition: transform 520ms var(--ease-out);
+  }
+  .switch[data-view='after'] .switch-thumb { transform: translateX(100%); }
+  .switch button {
+    position: relative; z-index: 1; border: 0; background: none; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 92px; padding: 10px 22px; border-radius: 999px; white-space: nowrap;
+    font: 600 13px/1.2 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--chrome-ink-2);
+    transition: color 320ms var(--ease-out);
+  }
+  .switch button[aria-selected='true'] { color: var(--chrome-floor); }
+  .switch button:active { transform: scale(0.98); }
+  .switch button[data-loading] { opacity: 0.6; }
+
+
+  /* ---------- the store the demo lives in - framed like a separate, embedded page ---------- */
+  #stage {
+    position: relative; flex: 1 0 auto;
+    border-radius: 14px; overflow: hidden;
+    border: 1px solid var(--chrome-line);
+    box-shadow: 0 40px 80px -40px rgba(0, 0, 0, 0.7);
+    font-family: var(--font-shop); color: var(--ink);
+    background: var(--shop-bg);
+  }
+  .shop-body { position: relative; isolation: isolate; }
+  .shop-grid {
+    max-width: 1120px; margin: 0 auto; padding: 36px 24px 36px;
+    display: grid; grid-template-columns: auto minmax(300px, 380px);
+    justify-content: center; gap: 56px; align-items: start;
+  }
+
+  /* before: the usual photo gallery */
+  .gallery { display: grid; grid-template-columns: 64px auto; gap: 12px; align-items: start; }
+  .thumbs { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .thumbs button {
+    display: block; width: 64px; aspect-ratio: 3 / 4; padding: 0; cursor: pointer;
+    border: 0; border-radius: var(--shop-radius); overflow: hidden; background: var(--soft);
+    box-shadow: inset 0 0 0 1px transparent; opacity: 0.62;
+    transition: opacity 200ms, box-shadow 200ms;
+  }
+  .thumbs button:hover { opacity: 0.9; }
+  .thumbs button[aria-current='true'] { opacity: 1; box-shadow: 0 0 0 2px var(--ink); }
+  .thumbs img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .main-shot {
+    position: relative; margin: 0;
+    height: clamp(420px, calc(100dvh - 330px), 640px); aspect-ratio: 3 / 4;
+    border-radius: var(--shop-radius); overflow: hidden; background: var(--soft);
+  }
+  .main-shot img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .shot-count {
+    position: absolute; right: 12px; bottom: 12px; padding: 4px 10px; border-radius: 999px;
+    background: rgba(22, 23, 26, 0.62); color: #fff; font: 500 12px/1.4 var(--font-shop);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* the buy box: same position and content in both states - name, color, price,
+     size, cart, buy, top right, exactly where "before" already had it. It stays
+     above the opaque gallery-cover (#viewer-layer) but below the render itself
+     (#canvas), so the model can rotate across it and its drawn pixels win; app.js
+     reads the canvas alpha under a tap so an empty patch of canvas still reaches
+     whatever control sits beneath it. */
+  .buybox { position: relative; z-index: 3; padding: 4px 0 0; }
+  .crumbs { margin: 0 0 10px; font-size: 13px; color: var(--ink-2); }
+  .buybox h2 { margin: 0; font: 700 26px/1.3 var(--font-shop); letter-spacing: -0.02em; text-wrap: balance; }
+  .buybox .colorway { margin: 6px 0 0; font-size: 15px; color: var(--ink-2); }
+  .price { margin: 20px 0 0; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; font-variant-numeric: tabular-nums; }
+  .price .now { font: 700 26px/1 var(--font-shop); letter-spacing: -0.01em; }
+
+  .options { margin: 24px 0 0; padding: 20px 0 0; border: 0; border-top: 1px solid var(--line); }
+  .opt-row { display: grid; grid-template-columns: 56px 1fr; align-items: center; gap: 12px; }
+  .opt-row + .opt-row { margin-top: 14px; }
+  .opt-label { font-size: 14px; color: var(--ink-2); }
+  .swatch { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; }
+  .swatch::before {
+    content: ''; width: 18px; height: 18px; border-radius: 50%;
+    background: #7c7a6c; box-shadow: 0 0 0 1px var(--line), 0 0 0 3px #fff, 0 0 0 4px var(--ink);
+  }
+  .sizes { display: flex; flex-wrap: wrap; gap: 6px; }
+  .sizes label { position: relative; }
+  .sizes input { position: absolute; opacity: 0; pointer-events: none; }
+  .sizes span {
+    display: grid; place-items: center; min-width: 48px; height: 38px; padding: 0 12px;
+    border-radius: var(--shop-radius); box-shadow: inset 0 0 0 1px var(--line);
+    font-size: 14px; font-weight: 500; cursor: pointer; background: #fff;
+    transition: box-shadow 160ms, background-color 160ms, color 160ms;
+  }
+  .sizes span:hover { box-shadow: inset 0 0 0 1px var(--ink-2); }
+  .sizes input:checked + span { background: var(--ink); color: #fff; box-shadow: none; }
+  .sizes input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+
+  .actions { margin-top: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .actions button {
+    height: 54px; border: 0; border-radius: var(--shop-radius); cursor: pointer;
+    font: 600 16px/1 var(--font-shop); white-space: nowrap;
+    transition: transform 120ms, background-color 160ms, box-shadow 160ms;
+  }
+  .actions button:active { transform: translateY(1px) scale(0.99); }
+  .btn-cart { background: #fff; box-shadow: inset 0 0 0 1px var(--ink); }
+  .btn-cart:hover { background: var(--soft); }
+  .btn-buy { background: var(--ink); color: #fff; }
+  .btn-buy:hover { background: #2c2e33; }
+
+  /* after: the render replaces the gallery photo, sized and placed to match it (see
+     app.js's targetBox/fitToView) - it isn't expected to reach the buy box. #viewer-layer
+     is just the opaque gallery-cover plus the loading state, always below the buy box.
+     #canvas is separate and sits above the buy box instead, because a drag can still
+     carry a shoulder or sleeve past the gallery's edge: when that happens the drawn
+     pixel wins over whatever sits beneath it, the way one real object in front of
+     another would. Both panels share one clip-path so they still wipe in together. */
+  #viewer-layer {
+    position: absolute; inset: 0; z-index: 2; background: var(--shop-bg); pointer-events: none;
+    clip-path: inset(0 100% 0 0);
+    visibility: hidden;
+    transition: clip-path var(--wipe-ms) var(--ease-wipe), visibility 0s linear var(--wipe-ms);
+  }
+  #stage[data-view='after'] #viewer-layer {
+    clip-path: inset(0 0 0 0); visibility: visible;
+    transition: clip-path var(--wipe-ms) var(--ease-wipe), visibility 0s;
+  }
+  #canvas {
+    position: absolute; inset: 0; z-index: 4; width: 100%; height: 100%; display: block; touch-action: none;
+    clip-path: inset(0 100% 0 0);
+    visibility: hidden; pointer-events: none;
+    transition: clip-path var(--wipe-ms) var(--ease-wipe), visibility 0s linear var(--wipe-ms);
+  }
+  #stage[data-view='after'] #canvas {
+    clip-path: inset(0 0 0 0); visibility: visible; pointer-events: auto;
+    transition: clip-path var(--wipe-ms) var(--ease-wipe), visibility 0s;
+  }
   #stage.live #canvas { cursor: grab; }
   #stage.live #canvas.shs-dragging { cursor: grabbing; }
   #canvas:focus, #canvas:focus-visible { outline: none; }
+
+  /* the scan line that carries the switch across the page */
+  .wipe-line {
+    position: absolute; top: 0; bottom: 0; left: 0; z-index: 4; width: 2px;
+    background: var(--accent); pointer-events: none; opacity: 0;
+    box-shadow: 0 0 0 6px rgba(255, 82, 82, 0.12);
+  }
+  .wipe-line.run-in { animation: wipe-in var(--wipe-ms) var(--ease-wipe); }
+  .wipe-line.run-out { animation: wipe-out var(--wipe-ms) var(--ease-wipe); }
+  @keyframes wipe-in { 0% { opacity: 1; transform: translateX(0); } 92% { opacity: 1; } 100% { opacity: 0; transform: translateX(100vw); } }
+  @keyframes wipe-out { 0% { opacity: 1; transform: translateX(100vw); } 92% { opacity: 1; } 100% { opacity: 0; transform: translateX(0); } }
 
   #progress {
     position: absolute; left: 0; right: 0; bottom: 0;
@@ -55,43 +242,139 @@
     background: linear-gradient(transparent, rgba(255, 255, 255, 0.92));
     text-align: center; transition: opacity 0.3s ease;
   }
-  #progress span { color: var(--text-2); font: 12px/1.4 var(--font-mono); }
+  #progress span { color: var(--ink-2); font: 12px/1.4 var(--font-mono); }
   #bar { width: 220px; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
   #bar > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.15s linear; }
   #progress.failed span { color: #d32f2f; }
   #progress.failed #bar { display: none; }
 
-  .footer-points {
-    flex: none; list-style: none; margin: 16px 0 0; padding: 0;
-    color: var(--text-2); font: 15px/1.7 var(--font-sans);
+  .toast {
+    position: fixed; left: 50%; bottom: 24px; z-index: 10;
+    padding: 12px 18px; border-radius: 999px; background: var(--ink); color: #fff;
+    font: 500 14px/1.4 var(--font-sans); white-space: nowrap;
+    box-shadow: 0 12px 32px -12px rgba(22, 23, 26, 0.5);
+    opacity: 0; transform: translate(-50%, 12px); pointer-events: none;
+    transition: opacity 260ms var(--ease-out), transform 260ms var(--ease-out);
   }
-  .footer-points li { position: relative; padding-left: 16px; }
-  .footer-points li::before { content: '–'; position: absolute; left: 0; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  .footer-points {
+    flex: none; list-style: none; margin: 28px 0 0; padding: 0;
+    display: flex; flex-wrap: wrap; gap: 8px 28px;
+    color: var(--chrome-ink-2); font: 15px/1.7 var(--font-sans);
+  }
+  .footer-points li { display: inline-flex; align-items: center; gap: 8px; }
+  .footer-points i { font-size: 19px; color: var(--accent); }
+
+  @media (max-width: 900px) {
+    .shop-grid { gap: 32px; grid-template-columns: auto minmax(260px, 340px); }
+    .main-shot { height: clamp(380px, 56vw, 520px); }
+  }
+
+  @media (max-width: 767px) {
+    .page { padding: 28px 16px 24px; }
+    h1 { font-size: 1.8rem; }
+    .tagline { font-size: 1.25rem; margin: 10px 0 20px; }
+    .switch { width: 100%; }
+    .switch button { padding: 10px 14px; font-size: 12px; }
+    #stage { border-radius: 10px; }
+    .shop-grid { grid-template-columns: minmax(0, 1fr); padding: 20px 0 28px; gap: 20px; }
+    .gallery { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+    .main-shot { order: -1; width: 100%; height: auto; border-radius: 0; }
+    .thumbs { display: flex; gap: 8px; padding: 0 16px; overflow-x: auto; }
+    .thumbs button { width: 52px; }
+    .buybox { padding: 0 16px; }
+    .actions button { height: 50px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :root { --wipe-ms: 1ms; }
+    .switch-thumb, .toast { transition-duration: 1ms !important; }
+    .wipe-line { display: none; }
+  }
 </style>
 </head>
 <body>
 <div class="page">
   <h1>
     <svg class="mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-      <circle cx="16" cy="16" r="9" fill="none" stroke="currentColor" stroke-width="2.4"/>
-      <circle cx="12" cy="12" r="2.6" fill="currentColor"/>
+      <path d="M16 5 L26 11 L26 21 L16 27 L6 21 L6 11 Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+      <path d="M16 5 L16 16 M26 11 L16 16 M6 11 L16 16 M16 16 L16 27 M6 21 L16 16 M26 21 L16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="16" cy="16" r="2" fill="currentColor"/>
     </svg>
     snap3d
   </h1>
-  <h3 class="tagline">옷이 아닌 핏을 보여줍니다</h3>
+  <p class="tagline">옷이 아닌 핏을 보여줍니다</p>
 
-  <div id="stage">
-    <canvas id="canvas"></canvas>
-    <div id="progress"><div id="bar"><i></i></div><span id="status">starting…</span></div>
+  <div class="compare">
+    <div class="switch" role="tablist" aria-label="상세페이지 비교" data-view="before">
+      <span class="switch-thumb" aria-hidden="true"></span>
+      <button type="button" role="tab" id="tab-before" aria-selected="true" aria-controls="stage" data-view="before">Before</button>
+      <button type="button" role="tab" id="tab-after" aria-selected="false" aria-controls="stage" data-view="after" tabindex="-1">After</button>
+    </div>
   </div>
 
+  <section id="stage" data-view="before" aria-labelledby="product-name" role="tabpanel">
+    <div class="shop-body">
+      <div class="shop-grid">
+        <div class="gallery" id="gallery">
+          <ul class="thumbs" aria-label="상품 사진">
+            <li><button type="button" aria-current="true" data-shot="1" aria-label="정면 사진"><img src="./assets/product/shot-1-thumb.jpg" alt="" width="64" height="85"></button></li>
+            <li><button type="button" data-shot="2" aria-label="사선 사진"><img src="./assets/product/shot-2-thumb.jpg" alt="" width="64" height="85" loading="lazy"></button></li>
+            <li><button type="button" data-shot="3" aria-label="측면 사진"><img src="./assets/product/shot-3-thumb.jpg" alt="" width="64" height="85" loading="lazy"></button></li>
+            <li><button type="button" data-shot="4" aria-label="뒷면 사진"><img src="./assets/product/shot-4-thumb.jpg" alt="" width="64" height="85" loading="lazy"></button></li>
+            <li><button type="button" data-shot="5" aria-label="디테일 사진"><img src="./assets/product/shot-5-thumb.jpg" alt="" width="64" height="85" loading="lazy"></button></li>
+          </ul>
+          <figure class="main-shot" id="main-shot">
+            <img id="main-img" src="./assets/product/shot-1.jpg" alt="맨투맨을 입고 의자에 앉은 모델의 정면 사진" width="1080" height="1440" fetchpriority="high">
+            <span class="shot-count"><span id="shot-index">1</span> / 5</span>
+          </figure>
+        </div>
+
+        <aside class="buybox" aria-label="구매 정보">
+          <p class="crumbs">상의 &rsaquo; 맨투맨</p>
+          <h2 id="product-name">오버핏 워싱 맨투맨</h2>
+          <p class="colorway">올리브 그레이</p>
+          <p class="price"><span class="now">39,000원</span></p>
+          <div class="options">
+            <div class="opt-row">
+              <span class="opt-label">색상</span>
+              <span class="swatch">올리브 그레이</span>
+            </div>
+            <div class="opt-row">
+              <span class="opt-label" id="size-label">사이즈</span>
+              <div class="sizes" role="radiogroup" aria-labelledby="size-label">
+                <label><input type="radio" name="size" value="S"><span>S</span></label>
+                <label><input type="radio" name="size" value="M" checked><span>M</span></label>
+                <label><input type="radio" name="size" value="L"><span>L</span></label>
+                <label><input type="radio" name="size" value="XL"><span>XL</span></label>
+              </div>
+            </div>
+          </div>
+          <div class="actions">
+            <button type="button" class="btn-cart">장바구니</button>
+            <button type="button" class="btn-buy">구매하기</button>
+          </div>
+        </aside>
+      </div>
+
+      <div id="viewer-layer">
+        <div id="progress"><div id="bar"><i></i></div><span id="status">starting…</span></div>
+      </div>
+      <canvas id="canvas" aria-label="맨투맨 착용 3D 뷰. 드래그해서 돌려볼 수 있습니다."></canvas>
+      <span class="wipe-line" id="wipe-line" aria-hidden="true"></span>
+    </div>
+  </section>
+
   <ul class="footer-points">
-    <li>사진만으로 생성</li>
-    <li>간단한 기존 웹사이트 연동</li>
+    <li><i class="ph ph-camera" aria-hidden="true"></i>사진만으로 생성</li>
+    <li><i class="ph ph-plugs-connected" aria-hidden="true"></i>간단한 기존 웹사이트 연동</li>
   </ul>
 </div>
 
-<script src="https://teo646.github.io/snap3d-viewer/dist/viewer.js"></script>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="http://127.0.0.1:8000/snap3d-viewer/dist/viewer_editor.js"></script>
 <script src="./app.js"></script>
 </body>
 </html>
