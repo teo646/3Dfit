@@ -56,14 +56,16 @@
   }
 
   /**
-   * Pan and zoom until whatever the bundle drew sits centred in `box` at `fill` of its
-   * size.
+   * Pan until whatever the bundle drew sits centred in `box`, and zoom out only if it
+   * would otherwise clip past `fill` of the box's size - never in, so the framing an
+   * operator tuned in the editor survives on any box roomy enough for it.
    *
-   * The pose in config.json is the one the pipeline picked for a 1280x800 window, and
-   * this stage is neither that size nor that shape, so rather than hard-code an offset,
-   * read back the frame, take the bounding box of everything that is not background,
-   * and move the camera. Zooming scales about the canvas centre, not the box's, so each
-   * pass leaves the next a smaller correction; three settle it.
+   * The pose in config.json is the one the operator chose against whatever window
+   * they were looking at, and this stage is rarely that size or that shape, so rather
+   * than hard-code an offset, read back the frame, take the bounding box of everything
+   * that is not background, and move the camera. Zooming scales about the canvas
+   * centre, not the box's, so each pass leaves the next a smaller correction; three
+   * settle it.
    */
   function fitToView(v, box, fill = 0.88) {
     const gl = v.gl;
@@ -75,6 +77,13 @@
     const boxW = box.w * s;
     const boxH = box.h * s;
     const pixels = new Uint8Array(width * height * 4);
+
+    // Judge "does it fit" from the operator's own authored radius every time, not
+    // whatever an earlier fit already left the camera at - reading the live radius
+    // instead would only ever ratchet the zoom further out on repeated calls (a
+    // resize back to a roomier box could never zoom back in to the tighter framing
+    // that box actually fits).
+    v.setCamera({ radius: v.config.initial_camera.radius });
 
     for (let pass = 0; pass < 3; pass++) {
       v.renderFrame();
@@ -103,8 +112,21 @@
       const target = v.camera.origin.map(
         (c, i) => c + 2 * offsetX * halfWidth * right[i] + 2 * offsetY * halfHeight * up[i],
       );
-      const occupancy = Math.max((maxX - minX) / boxW, (maxY - minY) / boxH);
-      v.setCamera({ target, radius: v.camera.radius * (occupancy / fill) });
+      // Only pass 0 (at the authored radius, just reset above) decides whether to
+      // shrink; later passes refine the pan at whatever radius that pass settled on,
+      // not by re-judging occupancy against an already-shrunk radius.
+      if (pass === 0) {
+        const occupancy = Math.max((maxX - minX) / boxW, (maxY - minY) / boxH);
+        // Only shrink to stop clipping - never grow past the radius the editor
+        // actually set. A box the authored composition already fits inside is left
+        // exactly as configured; only one that would clip it forces a zoom-out, and
+        // only far enough to stop that, so a device with a roomier box doesn't get a
+        // radius the operator never chose.
+        const radius = occupancy > fill ? v.camera.radius * (occupancy / fill) : v.camera.radius;
+        v.setCamera({ target, radius });
+      } else {
+        v.setCamera({ target });
+      }
     }
   }
 
