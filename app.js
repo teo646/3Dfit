@@ -22,8 +22,6 @@
 
   const $ = (id) => document.getElementById(id);
   const stage = $('stage');
-  const progress = $('progress');
-  const status = $('status');
   const canvas = $('canvas');
   const mainShot = $('main-shot');
   const wipeLine = $('wipe-line');
@@ -36,10 +34,11 @@
   let ready = false;
   let interacted = false;
 
+  // The progress bar/MB counter and the error message both come from the viewer's
+  // own built-in loadingIndicator now (see the constructor below) rather than being
+  // hand-rolled here - onError only needs to log and stop the "loading" spinner state
+  // the After tab shows.
   const fail = (error) => {
-    progress.hidden = false;
-    progress.classList.add('failed');
-    status.textContent = String(error?.message ?? error);
     afterTab.removeAttribute('data-loading');
     console.error(error);
   };
@@ -208,7 +207,6 @@
     ready = true;
     applyFrame(viewer, targetBox());
     viewer.setHome(); // R returns to this framing, not the pose the fit moved away from
-    progress.hidden = true;
     stage.classList.add('live');
     afterTab.removeAttribute('data-loading');
     if (view === 'before') viewer.stop(); // nothing on screen to draw for
@@ -325,13 +323,8 @@
 
   const viewer = new Snap3dViewer(canvas, BUNDLE, {
     background: STAGE_BACKGROUND,
-    onProgress: (loaded, total) => {
-      $('bar').firstElementChild.style.width = `${(loaded / total) * 100}%`;
-      status.textContent =
-        loaded < total
-          ? `${(loaded / 1e6).toFixed(1)} / ${(total / 1e6).toFixed(1)} MB`
-          : 'decompressing…';
-    },
+    loadingIndicator: { color: '#ff5252' }, // snap3d's own accent; the bar/MB-counter/
+                                             // error text themselves are the viewer's
     onError: fail,
   });
   window.viewer = viewer; // a console handle

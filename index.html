@@ -236,18 +236,6 @@
   @keyframes wipe-in { 0% { opacity: 1; transform: translateX(0); } 92% { opacity: 1; } 100% { opacity: 0; transform: translateX(100vw); } }
   @keyframes wipe-out { 0% { opacity: 1; transform: translateX(100vw); } 92% { opacity: 1; } 100% { opacity: 0; transform: translateX(0); } }
 
-  #progress {
-    position: absolute; left: 0; right: 0; bottom: 0;
-    display: grid; justify-items: center; gap: 8px; padding: 20px 16px 16px;
-    background: linear-gradient(transparent, rgba(255, 255, 255, 0.92));
-    text-align: center; transition: opacity 0.3s ease;
-  }
-  #progress span { color: var(--ink-2); font: 12px/1.4 var(--font-mono); }
-  #bar { width: 220px; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
-  #bar > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.15s linear; }
-  #progress.failed span { color: #d32f2f; }
-  #progress.failed #bar { display: none; }
-
   .toast {
     position: fixed; left: 50%; bottom: 24px; z-index: 10;
     padding: 12px 18px; border-radius: 999px; background: var(--ink); color: #fff;
@@ -358,9 +346,7 @@
         </aside>
       </div>
 
-      <div id="viewer-layer">
-        <div id="progress"><div id="bar"><i></i></div><span id="status">starting…</span></div>
-      </div>
+      <div id="viewer-layer"></div>
       <canvas id="canvas" aria-label="맨투맨 착용 3D 뷰. 드래그해서 돌려볼 수 있습니다."></canvas>
       <span class="wipe-line" id="wipe-line" aria-hidden="true"></span>
     </div>
