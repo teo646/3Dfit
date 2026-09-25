@@ -56,13 +56,21 @@
   }
 
   /**
-   * Where `config.frame` places the render: `fill`, how much of `box`'s tighter
-   * dimension the object should occupy (`max(objW/boxW, objH/boxH)` - can be above 1,
-   * an intentional close crop, and is reproduced exactly, never clamped), and
-   * `anchor`, the `[x, y]` fraction of `box` (0..1, y from the top) the rotation axis
-   * itself should land on. A bundle with no `frame` block falls back to `{fill: 0.88,
-   * anchor: [0.5, 0.5]}` - centred, filling most of the box - which is what this page
-   * always did before `frame` existed.
+   * Where `config.frame` places the render: `fill`, how much of `box`'s *height* the
+   * object should occupy (`objH/boxH` - can be above 1, an intentional close crop,
+   * and is reproduced exactly, never clamped), and `anchor`, the `[x, y]` fraction of
+   * `box` (0..1, y from the top) the rotation axis itself should land on. Height
+   * only, not `box`'s tighter dimension of width vs. height: for a fixed vertical
+   * FOV, screen height as a fraction of box height depends only on radius and the
+   * object's own size, never on the box's width or aspect ratio, so it's the one
+   * measurement that means the same thing in this box as it did in whatever the
+   * operator composed against (the editor's own canvas, usually a very different
+   * shape than a product photo slot) - width-relative occupancy does depend on
+   * aspect, so folding it in (`max(w/boxW, h/boxH)`, an earlier version of this)
+   * meant `fill` silently meant something different on reload than it did when set.
+   * A bundle with no `frame` block falls back to `{fill: 0.88, anchor: [0.5, 0.5]}` -
+   * centred, filling most of the box - which is what this page always did before
+   * `frame` existed.
    *
    * Both are defined against the axis (`viewer.rotation.center`), not the object's own
    * silhouette, on purpose: the object's *pose* changes what its bounding box looks
@@ -122,15 +130,16 @@
         }
       }
       if (maxX < 0) return; // nothing drawn - leave the shipped pose alone
-      // Touching the canvas's own edge (not the box's) means the render is clipped
-      // there, not actually that small - the true bounding box continues past what
-      // got read back, so the read occupancy is only a lower bound on the real one.
-      // A fill above what the canvas has room for hits this on every pass, and
-      // trusting a clipped read as exact would ask for a tighter zoom every time,
-      // forever. It's still a safe *lower* bound, though: zooming out from it can
-      // only shrink the render and move it further from every edge, never worse -
-      // only zooming in on an unreliable number is what needs guarding against.
-      const clipped = minX <= 0 || maxX >= width - 1 || minY <= 0 || maxY >= height - 1;
+      // Touching the canvas's own top/bottom edge means the render is clipped there,
+      // not actually that short - the true bounding box continues past what got read
+      // back, so the read occupancy is only a lower bound on the real one. A fill
+      // above what the canvas has room for hits this on every pass, and trusting a
+      // clipped read as exact would ask for a tighter zoom every time, forever. It's
+      // still a safe *lower* bound, though: zooming out from it can only shrink the
+      // render and move it further from the edge, never worse - only zooming in on an
+      // unreliable number is what needs guarding against. Left/right clipping doesn't
+      // matter here - see why below.
+      const clipped = minY <= 0 || maxY >= height - 1;
 
       // The axis's own screen position - see the module comment for why this, and
       // not the bounding box just read above, is what gets moved to `anchor`.
@@ -165,7 +174,16 @@
       // two-value oscillation instead of converging; the square root - a half-step in
       // log space - damps that the way any correction to a coupled, nonlinear system
       // needs to be damped, at the cost of needing more passes to close in.
-      const occupancy = Math.max((maxX - minX) / boxW, (maxY - minY) / boxH);
+      // Vertical only, not max(w/boxW, h/boxH): for a fixed vertical FOV, an
+      // object's screen *height* as a fraction of the box's height depends only on
+      // radius and the object's own size, never on the box's width or aspect ratio -
+      // width-relative occupancy does depend on aspect, so mixing it in made `fill`
+      // mean a different thing on a canvas shaped differently than the box it was
+      // authored against (the editor's canvas, wide; a product photo slot, narrow -
+      // reload after editing landed on whichever dimension happened to bind in each).
+      // This is also why only top/bottom clipping is checked above: a render that
+      // runs off the canvas left or right doesn't touch this number at all.
+      const occupancy = (maxY - minY) / boxH;
       // A clipped-but-already-over-fill reading still means "zoom out, for sure" -
       // only a clipped reading at or under fill is the ambiguous case (the true
       // occupancy could already be there, or well past it) worth leaving alone
