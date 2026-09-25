@@ -56,36 +56,56 @@
   }
 
   /**
-   * Pan until whatever the bundle drew sits centred in `box`, and zoom out only if it
-   * would otherwise clip past `fill` of the box's size - never in, so the framing an
-   * operator tuned in the editor survives on any box roomy enough for it.
+   * Where `config.frame` places the render: `fill`, how much of `box`'s tighter
+   * dimension the object should occupy (`max(objW/boxW, objH/boxH)` - can be above 1,
+   * an intentional close crop, and is reproduced exactly, never clamped), and
+   * `anchor`, the `[x, y]` fraction of `box` (0..1, y from the top) the rotation axis
+   * itself should land on. A bundle with no `frame` block falls back to `{fill: 0.88,
+   * anchor: [0.5, 0.5]}` - centred, filling most of the box - which is what this page
+   * always did before `frame` existed.
    *
-   * The pose in config.json is the one the operator chose against whatever window
-   * they were looking at, and this stage is rarely that size or that shape, so rather
-   * than hard-code an offset, read back the frame, take the bounding box of everything
-   * that is not background, and move the camera. Zooming scales about the canvas
-   * centre, not the box's, so each pass leaves the next a smaller correction; three
-   * settle it.
+   * Both are defined against the axis (`viewer.rotation.center`), not the object's own
+   * silhouette, on purpose: the object's *pose* changes what its bounding box looks
+   * like from frame to frame (an arm swung out, a different rotation reveals a wider
+   * silhouette), but the axis is the one point that does not, so anchoring on it is
+   * what keeps the framing stable as the object turns - see the axis-projection
+   * helper in snap3d-viewer's own editor (`_updateAxisLine`), which this mirrors.
+   *
+   * The pose in config.json is tuned against whatever window the operator was
+   * actually looking at (the editor's canvas, or the pipeline's 1280x800 render), and
+   * this stage's box is rarely that size or shape, so rather than hard-code an
+   * offset, read the frame back, locate the axis and the object's bounding box in it,
+   * and move the camera until both match `frame` in *this* box. Zooming scales about
+   * the canvas centre, not the box's, so each pass leaves the next a smaller
+   * correction; eight settle it.
    */
-  function fitToView(v, box, fill = 0.88) {
+  function applyFrame(v, box) {
     const gl = v.gl;
     const { width, height } = v.canvas;
     if (!width || !height || !box.w || !box.h) return;
+    const frame = v.config.frame ?? { fill: 0.88, anchor: [0.5, 0.5] };
     const s = width / v.canvas.clientWidth; // CSS px to device px
-    const boxCx = (box.x + box.w / 2) * s;
-    const boxCy = height - (box.y + box.h / 2) * s; // readPixels is bottom-up
     const boxW = box.w * s;
     const boxH = box.h * s;
+    // Device px, top-down (matches the projection helper below), not readPixels'
+    // bottom-up convention - kept separate from that so neither has to be converted
+    // through the other.
+    const anchorPxX = (box.x + frame.anchor[0] * box.w) * s;
+    const anchorPxY = (box.y + frame.anchor[1] * box.h) * s;
     const pixels = new Uint8Array(width * height * 4);
+    const mat4 = Snap3dViewer.mat4;
 
-    // Judge "does it fit" from the operator's own authored radius every time, not
-    // whatever an earlier fit already left the camera at - reading the live radius
-    // instead would only ever ratchet the zoom further out on repeated calls (a
-    // resize back to a roomier box could never zoom back in to the tighter framing
-    // that box actually fits).
+    // Judge occupancy from the operator's own authored radius every time, not
+    // whatever an earlier pass already left the camera at - reading the live radius
+    // instead would only ratchet the zoom in one direction on repeated calls (a
+    // resize back to a roomier box could never zoom back in to a tighter framing that
+    // box would actually fit).
     v.setCamera({ radius: v.config.initial_camera.radius });
 
-    for (let pass = 0; pass < 3; pass++) {
+    // Eight, not three: radius now also converges iteratively, damped (see below) to
+    // stay stable against a large simultaneous pan - a pass budget sized for pan
+    // alone, undamped, wasn't enough passes for both to settle.
+    for (let pass = 0; pass < 8; pass++) {
       v.renderFrame();
       gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
 
@@ -102,31 +122,56 @@
         }
       }
       if (maxX < 0) return; // nothing drawn - leave the shipped pose alone
+      // Touching the canvas's own edge (not the box's) means the render is clipped
+      // there, not actually that small - the true bounding box continues past what
+      // got read back, so the read occupancy is only a lower bound on the real one.
+      // A fill above what the canvas has room for hits this on every pass, and
+      // trusting a clipped read as exact would ask for a tighter zoom every time,
+      // forever. It's still a safe *lower* bound, though: zooming out from it can
+      // only shrink the render and move it further from every edge, never worse -
+      // only zooming in on an unreliable number is what needs guarding against.
+      const clipped = minX <= 0 || maxX >= width - 1 || minY <= 0 || maxY >= height - 1;
 
-      const offsetX = ((minX + maxX) / 2 - boxCx) / width;
-      const offsetY = ((minY + maxY) / 2 - boxCy) / height;
+      // The axis's own screen position - see the module comment for why this, and
+      // not the bounding box just read above, is what gets moved to `anchor`.
+      const proj = mat4.multiply(
+        mat4.perspective(v.config.initial_camera.fov_deg, width / height, v.camera.radius * 0.02, v.camera.radius * 20),
+        v.camera.viewMatrix(),
+      );
+      const [ax, ay, az] = v.rotation.center;
+      const cx = proj[0] * ax + proj[4] * ay + proj[8] * az + proj[12];
+      const cy = proj[1] * ax + proj[5] * ay + proj[9] * az + proj[13];
+      const cw = proj[3] * ax + proj[7] * ay + proj[11] * az + proj[15];
+      if (cw <= 1e-6) return; // the axis is behind the camera - leave the pose alone
+      const axisPxX = ((cx / cw) * 0.5 + 0.5) * width;
+      const axisPxY = (1 - ((cy / cw) * 0.5 + 0.5)) * height; // top-down
+
+      const offsetX = (axisPxX - anchorPxX) / width;
+      const offsetY = (axisPxY - anchorPxY) / height;
       const halfHeight = v.camera.radius * Math.tan((v.config.initial_camera.fov_deg * Math.PI) / 360);
       const halfWidth = halfHeight * (width / height);
 
       const [right, up] = v.camera.forwardAxes;
       const target = v.camera.origin.map(
-        (c, i) => c + 2 * offsetX * halfWidth * right[i] + 2 * offsetY * halfHeight * up[i],
+        (c, i) => c + 2 * offsetX * halfWidth * right[i] - 2 * offsetY * halfHeight * up[i],
       );
-      // Only pass 0 (at the authored radius, just reset above) decides whether to
-      // shrink; later passes refine the pan at whatever radius that pass settled on,
-      // not by re-judging occupancy against an already-shrunk radius.
-      if (pass === 0) {
-        const occupancy = Math.max((maxX - minX) / boxW, (maxY - minY) / boxH);
-        // Only shrink to stop clipping - never grow past the radius the editor
-        // actually set. A box the authored composition already fits inside is left
-        // exactly as configured; only one that would clip it forces a zoom-out, and
-        // only far enough to stop that, so a device with a roomier box doesn't get a
-        // radius the operator never chose.
-        const radius = occupancy > fill ? v.camera.radius * (occupancy / fill) : v.camera.radius;
-        v.setCamera({ target, radius });
-      } else {
-        v.setCamera({ target });
-      }
+      // occupancy/fill isn't exact in one shot the way the pan correction is: screen
+      // size scales as 1/radius only for a point, and the object has real depth
+      // relative to how close the camera already is, so nearer and farther parts of
+      // it grow at different rates as radius changes - more so here than the old
+      // single-shot version ever saw, since a large simultaneous pan (the axis can
+      // start well off `anchor`) changes which parts of that depth are even in frame.
+      // Applying the full correction each pass overshoots and settles into a
+      // two-value oscillation instead of converging; the square root - a half-step in
+      // log space - damps that the way any correction to a coupled, nonlinear system
+      // needs to be damped, at the cost of needing more passes to close in.
+      const occupancy = Math.max((maxX - minX) / boxW, (maxY - minY) / boxH);
+      // A clipped-but-already-over-fill reading still means "zoom out, for sure" -
+      // only a clipped reading at or under fill is the ambiguous case (the true
+      // occupancy could already be there, or well past it) worth leaving alone
+      // rather than guessing a tighter zoom off an unreliable number.
+      const radius = clipped && occupancy <= frame.fill ? v.camera.radius : v.camera.radius * Math.sqrt(occupancy / frame.fill);
+      v.setCamera({ target, radius });
     }
   }
 
@@ -136,14 +181,14 @@
     const { azimuth, elevation } = viewer.camera;
     const home = viewer.home;
     viewer.setCamera({ azimuth: home.azimuth, elevation: home.elevation });
-    fitToView(viewer, targetBox());
+    applyFrame(viewer, targetBox());
     viewer.setHome();
     viewer.setCamera({ azimuth, elevation });
   }
 
   function settle() {
     ready = true;
-    fitToView(viewer, targetBox());
+    applyFrame(viewer, targetBox());
     viewer.setHome(); // R returns to this framing, not the pose the fit moved away from
     progress.hidden = true;
     stage.classList.add('live');
