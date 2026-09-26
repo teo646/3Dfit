@@ -102,6 +102,7 @@
   const viewer = new Snap3dViewer(canvas, BUNDLE, {
     loadingIndicator: { color: '#ff5252' }, // snap3d's own accent; the bar/MB-counter/
                                              // error text themselves are the viewer's
+    passthrough: true, // #canvas overlaps the buy box (see --viewer-scale in index.html)
     onError: fail,
   });
   window.viewer = viewer; // a console handle
