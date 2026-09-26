@@ -73,7 +73,7 @@
     display: flex; align-items: center; gap: 12px; flex: none;
     font: 400 2.16rem/1.2 var(--font-sans); margin: 0;
   }
-  h1 .mark { width: 30px; height: 30px; color: var(--accent); flex-shrink: 0; }
+  h1 .mark { display: block; width: 32px; height: 32px; object-fit: contain; flex-shrink: 0; }
   .tagline { flex: none; font: 400 1.575rem/1.35 var(--font-sans); margin: 14px 0 28px; color: var(--chrome-ink-2); }
 
   /* ---------- before / after switch ---------- */
@@ -297,11 +297,7 @@
 <body>
 <div class="page">
   <h1>
-    <svg class="mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-      <path d="M16 5 L26 11 L26 21 L16 27 L6 21 L6 11 Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
-      <path d="M16 5 L16 16 M26 11 L16 16 M6 11 L16 16 M16 16 L16 27 M6 21 L16 16 M26 21 L16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-      <circle cx="16" cy="16" r="2" fill="currentColor"/>
-    </svg>
+    <img class="mark" src="./assets/3dfit-logo.png" alt="" width="128" height="128">
     3Dfit
   </h1>
   <p class="tagline">옷이 아닌 핏을 보여줍니다</p>
