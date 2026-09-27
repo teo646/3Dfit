@@ -71,13 +71,6 @@
   }
 
   for (const tab of tabs) tab.addEventListener('click', () => show(tab.dataset.view));
-  switcher.addEventListener('keydown', (e) => {
-    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
-    e.preventDefault();
-    const next = e.key === 'ArrowLeft' || e.key === 'Home' ? 'before' : 'after';
-    show(next, { focus: true });
-    tabs.find((t) => t.dataset.view === next).focus();
-  });
 
   // ---------- the store's own buttons ----------
 
