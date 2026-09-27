@@ -36,7 +36,7 @@
     ready = true;
     stage.classList.add('live');
     afterTab.removeAttribute('data-loading');
-    if (view === 'before') viewer.stop(); // nothing on screen to draw for
+    show('after')
   }
 
   function onReadyFailed() {} // onError already reported it; this only stops the rejection
