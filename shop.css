@@ -11,11 +11,10 @@
   --ease-wipe: cubic-bezier(0.65, 0, 0.35, 1);
   --wipe-ms: 820ms;
 
-  --shop-bg: #e7e8eb;
+  --shop-bg: #ecece9;
   --ink: #16171a;
   --ink-2: #5b5e66;
   --line: #e7e8eb;
-  --soft: #e7e8eb;
   --border: rgba(0, 0, 0, 0.12);
 }
 
@@ -46,7 +45,6 @@
   border: 0; border-radius: 999px; background: none; color: var(--ink);
   font-size: 19px; cursor: pointer; transition: background-color 160ms;
 }
-.shop-nav button:hover { background: var(--soft); }
 
 /* Bounds the enlarged #canvas (see --viewer-scale below) to the area below the
    header: overflow: hidden here, not on .shop-body, clips exactly at the
@@ -64,7 +62,7 @@
 .main-shot {
   position: relative; margin: 0;
   height: clamp(420px, calc(100dvh - 330px), 640px); aspect-ratio: 3 / 4;
-  border-radius: var(--shop-radius); background: var(--soft);
+  border-radius: var(--shop-radius);
 }
 /* .main-shot itself is no longer overflow: hidden - #canvas deliberately grows
    past it (see below) - so the photo rounds its own corners directly instead of

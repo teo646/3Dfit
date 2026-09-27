@@ -8,9 +8,9 @@
 :root {
   --font-sans: 'Pretendard Variable', Pretendard, 'Rubik', sans-serif;
   --font-mono: 'Roboto Mono', monospace;
-  --font-size-heading: 40px;
-  --font-size-body: 16px;
-  --font-size-caption: 13px;
+  --font-size-big: 40px;
+  --font-size-middle: 25px;
+  --font-size-small: 15px;
   --accent: #8d919b;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
@@ -28,7 +28,7 @@
 html { scrollbar-color: #45474e transparent; }
 body {
   margin: 0; background: var(--chrome-floor); color: var(--chrome-ink);
-  font: var(--font-size-body)/1.6 var(--font-sans); -webkit-font-smoothing: antialiased;
+  font: var(--font-size-middle)/1.6 var(--font-sans); -webkit-font-smoothing: antialiased;
   overflow-x: hidden; word-break: keep-all;
 }
 ::selection { background: rgba(255, 82, 82, 0.32); }
@@ -45,10 +45,10 @@ button { font: inherit; color: inherit; }
 
 h1 {
   display: flex; align-items: center; gap: 12px; flex: none;
-  font: 400 var(--font-size-heading)/1.2 var(--font-sans); margin: 0;
+  font: 400 var(--font-size-big)/1.2 var(--font-sans); margin: 0;
 }
-h1 .mark { display: block; width: 50px; height: 50px; object-fit: contain; flex-shrink: 0; }
-.tagline { flex: none; font: 400 1.575rem/1.35 var(--font-sans); margin: 14px 0 28px; color: var(--chrome-ink-2); }
+h1 .mark { display: block; width: 70px; height: 70px; object-fit: contain; flex-shrink: 0; mix-blend-mode: screen;}
+.tagline { flex: none; font: 400 var(--font-size-middle)/1.35 var(--font-sans); margin: 14px 0 28px; color: var(--chrome-ink-2); }
 
 /* ---------- before / after switch ---------- */
 .compare {
@@ -71,7 +71,7 @@ h1 .mark { display: block; width: 50px; height: 50px; object-fit: contain; flex-
   position: relative; z-index: 1; border: 0; background: none; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 92px; padding: 10px 22px; border-radius: 999px; white-space: nowrap;
-  font: 600 var(--font-size-caption)/1.2 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase;
+  font: 600 var(--font-size-small)/1.2 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--chrome-ink-2);
   transition: color 320ms var(--ease-out);
 }
@@ -92,25 +92,27 @@ h1 .mark { display: block; width: 50px; height: 50px; object-fit: contain; flex-
 /* ---------- reusable card: chrome-styled frame, shared by the demo stage and the feature cards below it ---------- */
 .card {
   border-radius: 14px;
-  border: 1px solid var(--chrome-line);
+  border: 2px solid var(--chrome-line);
   background: var(--chrome-soft);
-  box-shadow: 0 24px 48px -32px rgba(0, 0, 0, 0.55);
+  box-shadow: 24px 24px 48px -32px rgba(141, 145, 155, 0.4);
+  flex-direction: column;
+  margin: 25px 20px 0;
 }
 
-.stage-card { flex: 1 0 auto; display: flex; padding: 16px; }
+.stage-card { flex: 1 0 auto; display: flex; padding: 10px;}
 
 .feature-cards {
   flex: none; display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 16px; margin: 28px 0 0;
+  gap: 16px;
 }
 .feature-card { padding: 20px; }
 .feature-card-title {
   margin: 0; display: flex; align-items: center; gap: 8px;
-  font: 600 var(--font-size-body)/1.4 var(--font-sans); color: var(--chrome-ink);
+  font: 400 var(--font-size-middle)/1.35 var(--font-sans); color: var(--chrome-ink);
 }
-.feature-card-title i { font-size: 19px; color: var(--accent); }
+.feature-card-title i { font-size: var(--font-size-middle); color: var(--accent); }
 .feature-card-desc {
-  margin: 8px 0 0; font: 400 var(--font-size-caption)/1.6 var(--font-sans);
+  margin: 8px 0 0; font: 400 var(--font-size-small)/1.6 var(--font-sans);
   color: var(--chrome-ink-2);
 }
 
